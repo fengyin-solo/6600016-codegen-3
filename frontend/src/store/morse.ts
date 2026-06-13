@@ -18,6 +18,15 @@ export const useMorseStore = defineStore('morse', () => {
   const isPlaying = ref(false)
   let audioCtx: AudioContext | null = null
   let currentOscillator: OscillatorNode | null = null
+  let currentGain: GainNode | null = null
+
+  const keyIsDown = ref(false)
+  const keyCurrentCode = ref('')
+  const keyMorseOutput = ref('')
+  const keyDecodedText = ref('')
+  let keyStartTime = 0
+  let charTimer: number | null = null
+  let wordTimer: number | null = null
 
   const dotDuration = computed(() => 1200 / wpm.value)
 
@@ -40,6 +49,85 @@ export const useMorseStore = defineStore('morse', () => {
       currentOscillator = osc
       setTimeout(() => { osc.stop(); currentOscillator = null; resolve() }, duration)
     })
+  }
+
+  function startKeyTone() {
+    if (currentOscillator) return
+    const ctx = getAudioCtx()
+    const osc = ctx.createOscillator()
+    const gain = ctx.createGain()
+    osc.type = 'sine'
+    osc.frequency.value = frequency.value
+    gain.gain.value = volume.value
+    osc.connect(gain)
+    gain.connect(ctx.destination)
+    osc.start()
+    currentOscillator = osc
+    currentGain = gain
+  }
+
+  function stopKeyTone() {
+    if (currentOscillator) {
+      currentOscillator.stop()
+      currentOscillator = null
+      currentGain = null
+    }
+  }
+
+  function clearTimers() {
+    if (charTimer) { clearTimeout(charTimer); charTimer = null }
+    if (wordTimer) { clearTimeout(wordTimer); wordTimer = null }
+  }
+
+  function finalizeCurrentChar() {
+    if (keyCurrentCode.value) {
+      const char = REVERSE_TABLE[keyCurrentCode.value] || ''
+      keyDecodedText.value += char
+      keyMorseOutput.value += (keyMorseOutput.value ? ' ' : '') + keyCurrentCode.value
+      keyCurrentCode.value = ''
+    }
+  }
+
+  function addWordSpace() {
+    finalizeCurrentChar()
+    if (keyDecodedText.value && !keyDecodedText.value.endsWith(' ')) {
+      keyDecodedText.value += ' '
+      keyMorseOutput.value += ' /'
+    }
+  }
+
+  function keyDown() {
+    if (keyIsDown.value) return
+    clearTimers()
+    keyIsDown.value = true
+    keyStartTime = Date.now()
+    startKeyTone()
+  }
+
+  function keyUp() {
+    if (!keyIsDown.value) return
+    const duration = Date.now() - keyStartTime
+    keyIsDown.value = false
+    stopKeyTone()
+
+    const dd = dotDuration.value
+    const symbol = duration < dd * 2 ? '.' : '-'
+    keyCurrentCode.value += symbol
+
+    charTimer = window.setTimeout(() => {
+      finalizeCurrentChar()
+    }, dd * 3)
+
+    wordTimer = window.setTimeout(() => {
+      addWordSpace()
+    }, dd * 7)
+  }
+
+  function clearKeyInput() {
+    clearTimers()
+    keyCurrentCode.value = ''
+    keyMorseOutput.value = ''
+    keyDecodedText.value = ''
   }
 
   async function playMorse(morse: string) {
@@ -93,7 +181,9 @@ export const useMorseStore = defineStore('morse', () => {
   return {
     inputText, morseOutput, decodedText, wpm, frequency, volume,
     trainMode, history, quizChar, userAnswer, score, isPlaying,
+    keyIsDown, keyCurrentCode, keyMorseOutput, keyDecodedText,
     dotDuration, encode, decode, playMorse, playTone,
-    generateQuiz, checkAnswer, resetScore
+    generateQuiz, checkAnswer, resetScore,
+    keyDown, keyUp, clearKeyInput
   }
 })

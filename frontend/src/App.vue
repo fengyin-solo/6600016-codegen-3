@@ -42,6 +42,11 @@
       <TrainingMode />
     </div>
 
+    <!-- Telegraph Key Mode -->
+    <div v-if="activeTab === 'key'" class="flex flex-col gap-4">
+      <TelegraphKey />
+    </div>
+
     <!-- Reference Table -->
     <div v-if="activeTab === 'ref'" class="bg-gray-900 rounded-xl p-4">
       <h3 class="text-amber-300 font-bold mb-3">莫尔斯码速查表</h3>
@@ -78,12 +83,14 @@ import { useMorseStore } from './store/morse'
 import { MORSE_TABLE } from './utils/morse-code'
 import WaveformDisplay from './components/WaveformDisplay.vue'
 import TrainingMode from './components/TrainingMode.vue'
+import TelegraphKey from './components/TelegraphKey.vue'
 
 const store = useMorseStore()
 const morseTable = MORSE_TABLE
 
 const tabs = [
   { id: 'translate', label: '编码/解码' },
+  { id: 'key', label: '模拟电键' },
   { id: 'train', label: '训练模式' },
   { id: 'ref', label: '速查表' },
 ]
